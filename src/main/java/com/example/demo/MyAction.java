@@ -28,36 +28,47 @@ public class MyAction extends AnAction {
         String documentText = editor.getDocument().getText();
         System.out.println("CARET:: " + caret);
 
-        // בדיקה אם הסמן בתוך סוגריים מסולסלים
-        int[] bracesRange = findBracesRange(documentText, offset);
-        if (bracesRange == null) return;
+        // מציאת הטווח של הטקסט (כולל סוגריים מסולסלים אם יש)
+        int[] wordRange = findBracesRange(documentText, offset);
+        if (wordRange == null) {
+            System.out.println("Cursor is not inside curly braces.");
+            return; // הסמן לא בתוך סוגריים מסולסלים
+        }
 
         // קבלת המילה בתוך הסוגריים
-        String wordInBraces = documentText.substring(bracesRange[0], bracesRange[1]).trim();
-        if (!"name".equals(wordInBraces)) return;
+        String wordInBraces = documentText.substring(wordRange[0], wordRange[1]).trim();
+        System.out.println("Word inside braces: " + wordInBraces);
+        if (!"name".equals(wordInBraces)) {
+            System.out.println("Word is not 'name'.");
+            return; // המילה לא "name"
+        }
 
+        // רשימת מילים להצעה
         String[] suggestions = {"Alice", "Bob", "Charlie"};
         LookupManager lookupManager = LookupManager.getInstance(project);
         System.out.println("AFTER:: LookupManager lookupManager = LookupManager.getInstance(project);");
         Lookup lookup = lookupManager.showLookup(editor, buildLookupElements(suggestions));
         System.out.println("AFTER:: Lookup lookup = lookupManager.showLookup(editor, buildLookupElements(suggestions));");
+
         // מאזין לבחירת מילה
         if (lookup != null) {
             System.out.println("(lookup != null)::");
             lookup.addLookupListener(new LookupListener() {
+                @Override
                 public void itemSelected(@NotNull LookupEvent event) {
                     LookupElement item = event.getItem();
                     if (item != null) {
-                        System.out.println("In:: public void itemSelected(@NotNull LookupElement item) {");
+                        System.out.println("In:: public void itemSelected(@NotNull LookupEvent event) {");
                         String selected = item.getLookupString();
 
+                        // שימוש ב-CommandProcessor כדי לסנכרן את השינויים עם ה-IDE
                         CommandProcessor.getInstance().executeCommand(project, () -> {
                             // מחיקת הטקסט הקיים כולל סוגריים מסולסלים
-                            editor.getDocument().deleteString(bracesRange[0], bracesRange[1]);
-                            System.out.println("Deleted range from " + bracesRange[0] + " to " + bracesRange[1]);
+                            editor.getDocument().deleteString(wordRange[0] - 1, wordRange[1] + 1); // מחיקת { ו-}
+                            System.out.println("Deleted range from " + (wordRange[0] - 1) + " to " + (wordRange[1] + 1));
 
                             // הוספת הטקסט שנבחר
-                            editor.getDocument().insertString(bracesRange[0], selected);
+                            editor.getDocument().insertString(wordRange[0] - 1, selected);
                             System.out.println("Inserted selected text: " + selected);
                         }, "Replace Text Inside Braces", null);
 
@@ -72,15 +83,15 @@ public class MyAction extends AnAction {
                     }
                 }
 
+                @Override
                 public void lookupCanceled(@NotNull LookupEvent event) {
                     System.out.println("In:: public void lookupCanceled(@NotNull LookupEvent event) {");
-                    // ניתן להוסיף לוגיקה במקרה שהמשתמש סוגר את חלון ההצעות בלי לבחור פריט.
                 }
             });
         }
     }
 
-    // פונקציה שמחזירה את המילה שנמצאת בתוך המיקום של הסמן
+    // מציאת הטווח של המילה בתוך סוגריים מסולסלים
     private int[] findBracesRange(String text, int offset) {
         int start = offset;
         int end = offset;
@@ -107,6 +118,7 @@ public class MyAction extends AnAction {
         return new int[]{start + 1, end};
     }
 
+    // בניית רשימת LookupElement מתוך המילים
     private LookupElementBuilder[] buildLookupElements(String[] suggestions) {
         LookupElementBuilder[] elements = new LookupElementBuilder[suggestions.length];
         for (int i = 0; i < suggestions.length; i++) {
