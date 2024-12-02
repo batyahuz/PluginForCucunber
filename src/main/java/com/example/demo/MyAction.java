@@ -97,11 +97,13 @@ public class MyAction extends AnAction {
         int end = offset;
 
         // חיפוש אחורה עד '{'
-        while (start > 0 && text.charAt(start) != '{') {
+        while (start > 0 && text.charAt(start - 1) != '{') {
             start--;
         }
 
-        if (text.charAt(start) != '{') {
+        if (start > 0 && text.charAt(start - 1) == '{') {
+            start--; // כולל את סוגר הפתיחה
+        } else {
             return null; // סוגר פותח לא נמצא
         }
 
@@ -110,12 +112,14 @@ public class MyAction extends AnAction {
             end++;
         }
 
-        if (end >= text.length() || text.charAt(end) != '}') {
+        if (end < text.length() && text.charAt(end) == '}') {
+            end++; // כולל את סוגר הסגירה
+        } else {
             return null; // סוגר סוגר לא נמצא
         }
 
-        // מחזיר את הטווח של הטקסט בתוך הסוגריים
-        return new int[]{start + 1, end};
+        System.out.println("Word range found: start=" + start + ", end=" + end);
+        return new int[]{start + 1, end - 1}; // מחזיר רק את הטווח הפנימי
     }
 
     // בניית רשימת LookupElement מתוך המילים
