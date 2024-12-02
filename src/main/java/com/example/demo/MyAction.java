@@ -4,128 +4,104 @@ import com.intellij.codeInsight.lookup.*;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.AnActionEvent;
 import com.intellij.openapi.command.CommandProcessor;
-import com.intellij.openapi.editor.Caret;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.Messages;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.List;
+
+import static com.example.demo.ReadFromFile.readSuggestionsFromFile;
 
 public class MyAction extends AnAction {
     @Override
     public void actionPerformed(AnActionEvent e) {
-
-        // קבלת הפרויקט והעורך (Editor)
         Project project = e.getProject();
-        System.out.println("PROJECT:: " + project);
         if (project == null) return;
 
         Editor editor = e.getData(com.intellij.openapi.actionSystem.CommonDataKeys.EDITOR);
-        System.out.println("EDITOR:: " + editor);
         if (editor == null) return;
 
-        // קבלת המיקום של הסמן
-        Caret caret = editor.getCaretModel().getPrimaryCaret();
-        int offset = caret.getOffset();
+        int offset = editor.getCaretModel().getPrimaryCaret().getOffset();
         String documentText = editor.getDocument().getText();
-        System.out.println("CARET:: " + caret);
 
         // מציאת הטווח של הטקסט (כולל סוגריים מסולסלים אם יש)
-        int[] wordRange = findBracesRange(documentText, offset);
-        if (wordRange == null) {
-            System.out.println("Cursor is not inside curly braces.");
+        int startBraceIndex = findOpeningBraceIndex(documentText, offset);
+        if (startBraceIndex == -1) {
             return; // הסמן לא בתוך סוגריים מסולסלים
         }
 
-        // קבלת המילה בתוך הסוגריים
-        String wordInBraces = documentText.substring(wordRange[0], wordRange[1]).trim();
-        System.out.println("Word inside braces: " + wordInBraces);
-        if (!"name".equals(wordInBraces)) {
-            System.out.println("Word is not 'name'.");
-            return; // המילה לא "name"
+        // מציאת סיום הצמד
+        int endBraceIndex = findClosingBraceIndex(documentText, startBraceIndex);
+
+        // בדיקה אם הסמן נמצא בתוך הצמד
+        if (offset <= startBraceIndex || offset > endBraceIndex) {
+            return; // הסמן לא בתוך הצמד
+        }
+
+        List<String> list = readSuggestionsFromFile(project);
+        System.out.println("list:: " + list);
+        if (list == null) {
+            Messages.showMessageDialog(project, "You must add --- file to define the plugin", "Plugin Message", Messages.getInformationIcon());
+        }
+
+        String wordInsideBraces = editor.getDocument().getText().substring(startBraceIndex + 1, endBraceIndex).trim();
+        if (!"name".
+
+                equals(wordInsideBraces)) {
+            return;
         }
 
         // רשימת מילים להצעה
-        String[] suggestions = {"Alice", "Bob", "Charlie"};
+        String[] suggestions = {"\"Alice\"", "\"Bob\"", "\"Charlie\""};
         LookupManager lookupManager = LookupManager.getInstance(project);
-        System.out.println("AFTER:: LookupManager lookupManager = LookupManager.getInstance(project);");
         Lookup lookup = lookupManager.showLookup(editor, buildLookupElements(suggestions));
-        System.out.println("AFTER:: Lookup lookup = lookupManager.showLookup(editor, buildLookupElements(suggestions));");
 
         // מאזין לבחירת מילה
         if (lookup != null) {
-            System.out.println("(lookup != null)::");
             lookup.addLookupListener(new LookupListener() {
                 @Override
                 public void itemSelected(@NotNull LookupEvent event) {
                     LookupElement item = event.getItem();
                     if (item != null) {
-                        System.out.println("In:: public void itemSelected(@NotNull LookupEvent event) {");
                         String selected = item.getLookupString();
 
-                       /*
-                        // שימוש ב-CommandProcessor כדי לסנכרן את השינויים עם ה-IDE
                         CommandProcessor.getInstance().executeCommand(project, () -> {
+                            // מציאת הטווח מחדש לפני מחיקה
+                            int endBraceIndex = findClosingBraceIndex(editor.getDocument().getText(), startBraceIndex);
+                            if (endBraceIndex == -1) {
+                                return; // צומד סוגר לא נמצא
+                            }
+
                             // מחיקת הטקסט הקיים כולל סוגריים מסולסלים
-                            editor.getDocument().deleteString(wordRange[0] - 1, wordRange[1] + 1); // כולל {}
-                            System.out.println("Deleted range from " + (wordRange[0] - 1) + " to " + (wordRange[1] + 1));
+                            editor.getDocument().deleteString(startBraceIndex, endBraceIndex + 1); // כולל {}
 
                             // הכנסת המילה החדשה במקום
-                            editor.getDocument().insertString(wordRange[0] - 1, selected);
-                            System.out.println("Inserted selected text: " + selected);
+                            editor.getDocument().insertString(startBraceIndex, selected);
                         }, "Replace Text Inside Braces", null);
-                        */
-                        System.out.println("BEFORE :: editor.getDocument():: " + editor.getDocument().getText());
-                        try {
-                            Thread.sleep(1000);
-                        } catch (Exception ignored) {
-                        }
-                        System.out.println("AFTER :: editor.getDocument():: " + editor.getDocument().getText());
-                        // מחיקת הטקסט הקיים כולל סוגריים מסולסלים
-                        editor.getDocument().deleteString(wordRange[0], wordRange[1]);
-                        System.out.println("Deleted range from " + wordRange[0] + " to " + wordRange[1]);
-
-                        // הוספת הטקסט שנבחר
-                        editor.getDocument().insertString(wordRange[0], selected);
-                        System.out.println("Inserted selected text: " + selected);
                     }
-                }
-
-                @Override
-                public void lookupCanceled(@NotNull LookupEvent event) {
-                    System.out.println("In:: public void lookupCanceled(@NotNull LookupEvent event) {");
                 }
             });
         }
+
     }
 
-    // מציאת הטווח של המילה בתוך סוגריים מסולסלים
-    private int[] findBracesRange(String text, int offset) {
-        int start = offset;
-        int end = offset;
-
-        // חיפוש אחורה עד '{'
-        while (start > 0 && text.charAt(start - 1) != '{') {
-            start--;
+    // מציאת אינדקס של סוגר מסולסל פותח '{'
+    private int findOpeningBraceIndex(String text, int offset) {
+        int index = offset;
+        while (index > 0 && text.charAt(index - 1) != '{') {
+            index--;
         }
+        return (index > 0 && text.charAt(index - 1) == '{') ? index - 1 : -1;
+    }
 
-        if (start > 0 && text.charAt(start - 1) == '{') {
-            start--; // כולל את סוגר הפתיחה
-        } else {
-            return null; // סוגר פותח לא נמצא
+    // מציאת אינדקס של סוגר מסולסל סוגר '}'
+    private int findClosingBraceIndex(String text, int start) {
+        int index = start;
+        while (index < text.length() && text.charAt(index) != '}') {
+            index++;
         }
-
-        // חיפוש קדימה עד '}'
-        while (end < text.length() && text.charAt(end) != '}') {
-            end++;
-        }
-
-        if (end < text.length() && text.charAt(end) == '}') {
-            end++; // כולל את סוגר הסגירה
-        } else {
-            return null; // סוגר סוגר לא נמצא
-        }
-
-        System.out.println("Word range found: start=" + start + ", end=" + end);
-        return new int[]{start + 1, end - 1}; // מחזיר רק את הטווח הפנימי
+        return (index < text.length() && text.charAt(index) == '}') ? index : -1;
     }
 
     // בניית רשימת LookupElement מתוך המילים
