@@ -61,25 +61,31 @@ public class MyAction extends AnAction {
                         System.out.println("In:: public void itemSelected(@NotNull LookupEvent event) {");
                         String selected = item.getLookupString();
 
+                       /*
                         // שימוש ב-CommandProcessor כדי לסנכרן את השינויים עם ה-IDE
                         CommandProcessor.getInstance().executeCommand(project, () -> {
                             // מחיקת הטקסט הקיים כולל סוגריים מסולסלים
-                            editor.getDocument().deleteString(wordRange[0] - 1, wordRange[1] + 1); // מחיקת { ו-}
+                            editor.getDocument().deleteString(wordRange[0] - 1, wordRange[1] + 1); // כולל {}
                             System.out.println("Deleted range from " + (wordRange[0] - 1) + " to " + (wordRange[1] + 1));
 
-                            // הוספת הטקסט שנבחר
+                            // הכנסת המילה החדשה במקום
                             editor.getDocument().insertString(wordRange[0] - 1, selected);
                             System.out.println("Inserted selected text: " + selected);
                         }, "Replace Text Inside Braces", null);
-
-                       /*
+                        */
+                        System.out.println("BEFORE :: editor.getDocument():: " + editor.getDocument().getText());
+                        try {
+                            Thread.sleep(1000);
+                        } catch (Exception ignored) {
+                        }
+                        System.out.println("AFTER :: editor.getDocument():: " + editor.getDocument().getText());
                         // מחיקת הטקסט הקיים כולל סוגריים מסולסלים
                         editor.getDocument().deleteString(wordRange[0], wordRange[1]);
                         System.out.println("Deleted range from " + wordRange[0] + " to " + wordRange[1]);
 
                         // הוספת הטקסט שנבחר
                         editor.getDocument().insertString(wordRange[0], selected);
-                        System.out.println("Inserted selected text: " + selected);*/
+                        System.out.println("Inserted selected text: " + selected);
                     }
                 }
 
