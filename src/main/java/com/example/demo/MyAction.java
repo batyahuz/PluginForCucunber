@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
 
+import static com.example.demo.ReadFromFile.readCategoriesFromFile;
 import static com.example.demo.ReadFromFile.readSuggestionsFromFile;
 
 public class MyAction extends AnAction {
@@ -39,21 +40,18 @@ public class MyAction extends AnAction {
             return; // הסמן לא בתוך הצמד
         }
 
-        List<String> list = readSuggestionsFromFile(project);
-        System.out.println("list:: " + list);
+        List<String> list = readCategoriesFromFile(project);
         if (list == null) {
             Messages.showMessageDialog(project, "You must add --- file to define the plugin", "Plugin Message", Messages.getInformationIcon());
-        }
-
-        String wordInsideBraces = editor.getDocument().getText().substring(startBraceIndex + 1, endBraceIndex).trim();
-        if (!"name".
-
-                equals(wordInsideBraces)) {
             return;
         }
 
+        String wordInsideBraces = editor.getDocument().getText().substring(startBraceIndex + 1, endBraceIndex).trim();
+        if (!list.contains(wordInsideBraces)) {
+            return;
+        }
         // רשימת מילים להצעה
-        String[] suggestions = {"\"Alice\"", "\"Bob\"", "\"Charlie\""};
+        String[] suggestions = addPrefixToEach(readSuggestionsFromFile(project, wordInsideBraces));
         LookupManager lookupManager = LookupManager.getInstance(project);
         Lookup lookup = lookupManager.showLookup(editor, buildLookupElements(suggestions));
 
@@ -111,5 +109,12 @@ public class MyAction extends AnAction {
             elements[i] = LookupElementBuilder.create(suggestions[i]);
         }
         return elements;
+    }
+
+    public static String[] addPrefixToEach(String[] strings) {
+        for (int i = 0; i < strings.length; i++) {
+            strings[i] = "\"" + strings[i] + "\"";
+        }
+        return strings;
     }
 }
